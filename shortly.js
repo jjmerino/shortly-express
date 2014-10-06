@@ -25,7 +25,7 @@ app.use(express.static(__dirname + '/public'));
 app.use(session({secret: 'ceteris paribus'}));
 
 
-var isAuthenticated = function(req, res, next) {
+var checkUser = function(req, res, next) {
   if (req.session.user) {
     next();
   } else {
@@ -34,24 +34,24 @@ var isAuthenticated = function(req, res, next) {
   }
 };
 
-app.get('/', isAuthenticated,
+app.get('/', checkUser,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/create', isAuthenticated,
+app.get('/create', checkUser,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/links', isAuthenticated,
+app.get('/links', checkUser,
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', isAuthenticated,
+app.post('/links', checkUser,
 function(req, res) {
   var uri = req.body.url;
 
@@ -137,6 +137,10 @@ app.get('/signup', function(req, res){
   res.render('signup');
 });
 
+app.get('/logout', function(req, res){
+  req.session.user = undefined;
+  res.redirect(302, '/');
+});
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
 // assume the route is a short code and try and handle it here.
