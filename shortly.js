@@ -2,6 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var session = require('express-session');
 
 
 var db = require('./app/config');
@@ -21,26 +22,36 @@ app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
+app.use(session({secret: 'ceteris paribus'}));
 
 
-app.get('/', 
+var isAuthenticated = function(req, res, next) {
+  if (req.session.user) {
+    next();
+  } else {
+    req.session.error = 'Access denied!';
+    res.redirect('/login');
+  }
+};
+
+app.get('/', isAuthenticated,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/create', 
+app.get('/create', isAuthenticated,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/links', 
+app.get('/links', isAuthenticated,
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', 
+app.post('/links', isAuthenticated,
 function(req, res) {
   var uri = req.body.url;
 
@@ -77,8 +88,54 @@ function(req, res) {
 /************************************************************/
 // Write your authentication routes here
 /************************************************************/
+app.post('/login', function(req, res){
+  var username = req.body.username;
+  var password = req.body.password;
 
+  // select * from `books` where `ISBN-13` = '9780440180296'
+  new User({'username': username, 'password': password})
+  .fetch()
+  .then(function(model) {
+    if (model) {
+      req.session.user = username;
+      res.redirect(302, '/');
+    } else {
+      res.redirect(302, '/login');
+    }
+  },function(){
+    res.redirect(302, '/login');
+  }
+  );
+});
 
+app.get('/login', function(req, res){
+ res.render('login');
+});
+
+app.post('/signup', function(req, res){
+  var username = req.body.username;
+  var password = req.body.password;
+
+  new User({'username': username, 'password': password})
+  .save()
+  .then(function(model) {
+    if (model) {
+      req.session.user = username;
+      res.redirect(302, '/');
+    } else {
+      res.redirect(302, '/login');
+    }
+
+  },function(){
+    res.redirect(400, '/signup');
+  }
+  );
+
+});
+
+app.get('/signup', function(req, res){
+  res.render('signup');
+});
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
